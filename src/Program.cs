@@ -14,7 +14,7 @@ namespace DiscordAmeiko
 
         static void Main(string[] args)
         {
-            if(args == null || args.Length != 2)
+            if (args == null || args.Length != 2)
             {
                 Console.WriteLine("usage: {0}.exe [username] [password]", System.Reflection.Assembly.GetEntryAssembly().CodeBase);
                 return;
@@ -41,9 +41,18 @@ namespace DiscordAmeiko
                 var result = 0;
                 var rolls = new List<int>();
 
+                var rollCount = 0;
+
                 var r = new Random();
                 foreach (Capture dice in match.Groups["Roll"].Captures)
                 {
+                    rollCount++;
+                    if (rollCount > 10)
+                    {
+                        await client.SendMessage(e.Channel, "Trop de jets ! 10 jets maximum pour l'instant");
+                        return;
+                    }
+
                     var diceFormula = dice.Value;
                     var hasDice = diceFormula.IndexOf('d') != -1;
                     var diceFormulaParts = diceFormula.Split('d');
@@ -74,9 +83,23 @@ namespace DiscordAmeiko
                             coef = -1;
                         }
 
+                        if (count > 10)
+                        {
+                            await client.SendMessage(e.Channel, "Trop de dés ! 10 dés maximum par jet pour l'instant");
+                            return;
+                        }
+
                         for (var i = 0; i < count; i++)
                         {
-                            roll = r.Next(1, int.Parse(diceFormulaParts[1]));
+                            var faces = int.Parse(diceFormulaParts[1]);
+
+                            if(faces > 1000)
+                            {
+                                await client.SendMessage(e.Channel, "Un dé avec autant de faces ? Jamais vu...");
+                                return;
+                            }
+
+                            roll = r.Next(1, faces);
                             rolls.Add(roll);
                             result += roll * coef;
                         }
