@@ -5,16 +5,17 @@ using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Discord.Commands;
 
 namespace DiscordAmeiko
 {
-    class Program
+    public static class Program
     {
         private static readonly Regex regex = new Regex(@"^(?<Formula>(?<Roll>\d+(d\d+(g\d+)?)?)(\s*(?<Roll>[\+\-]\d+(d\d+(g\d+)?)?))*)$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture);
 
-        private static DiscordBotClient client;
+        private static DiscordClient client;
 
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             if (args == null || args.Length != 2)
             {
@@ -22,25 +23,29 @@ namespace DiscordAmeiko
                 return;
             }
 
-            client = new DiscordBotClient();
-            client.CommandChar = '!';
-            client.LogMessage += (s, e) => Console.WriteLine($"[{e.Severity}] {e.Source}: {e.Message}");
+            client = new DiscordClient();
+            client.UsingCommands(x =>
+            {
+                x.PrefixChar = '!';
+            });
+
+            var cmdService = client.GetService<CommandService>();
+            cmdService.CreateCommand("lance").Do(Roll);
+            cmdService.CreateCommand("salut").Do(Salut);
 
             client.Connect(args[0], args[1]).Wait();
-            client.CreateCommand("lance").Do(Roll);
-            client.CreateCommand("salut").Do(Salut);
             Console.ReadKey();
         }
 
-        private async static Task Roll(CommandEventArgs e)
+        private static async Task Roll(CommandEventArgs e)
         {
-            var formula = e.CommandText.Substring(e.Command.Text.Length + 1).Trim();
+            var formula = e.Message.RawText.Substring(e.Command.Text.Length + 1).Trim();
 
             var match = regex.Match(formula);
 
             if (!match.Success)
             {
-                await client.SendMessage(e.Channel, "Formule non reconnue. Format de formule : !lance XdY(gZ) [(+|-)X(dY(gZ)) ...]. Exemples : 1d6, 1d20+3, 4d6g3 (garde les 3 meilleurs)");
+                await e.Channel.SendMessage("Formule non reconnue. Format de formule : !lance XdY(gZ) [(+|-)X(dY(gZ)) ...]. Exemples : 1d6, 1d20+3, 4d6g3 (garde les 3 meilleurs)");
                 return;
             }
 
@@ -55,7 +60,7 @@ namespace DiscordAmeiko
                 rollCount++;
                 if (rollCount > 10)
                 {
-                    await client.SendMessage(e.Channel, "Trop de jets ! 10 jets maximum pour l'instant");
+                    await e.Channel.SendMessage("Trop de jets ! 10 jets maximum pour l'instant");
                     return;
                 }
 
@@ -101,13 +106,13 @@ namespace DiscordAmeiko
 
                 if (faces > 1000)
                 {
-                    await client.SendMessage(e.Channel, "Un dé avec autant de faces ? Jamais vu...");
+                    await e.Channel.SendMessage("Un dé avec autant de faces ? Jamais vu...");
                     return;
                 }
 
                 if (count > 10)
                 {
-                    await client.SendMessage(e.Channel, "Trop de dés ! 10 dés maximum par jet pour l'instant");
+                    await e.Channel.SendMessage("Trop de dés ! 10 dés maximum par jet pour l'instant");
                     return;
                 }
 
@@ -141,12 +146,12 @@ namespace DiscordAmeiko
 
             var content = string.Format("{3} lance {0} et obtient {1} ({2})", formula, result, string.Join(", ", rolls), e.User.Name);
 
-            await client.SendMessage(e.Channel, content);
+            await e.Channel.SendMessage(content);
         }
 
-        private async static Task Salut(CommandEventArgs e)
+        private static async Task Salut(CommandEventArgs e)
         {
-            await client.SendMessage(e.Channel, $"Salut {e.User.Name}, bienvenue à l'auberge du Dragon Rouillé de Pointesable ! Pour l'instant tu peux juste lancer quelques dés avec la commande !lance (par ex. !lance 1d20), mais le meilleur est à venir.");
+            await e.Channel.SendMessage($"Salut {e.User.Name}, bienvenue à l'auberge du Dragon Rouillé de Pointesable ! Pour l'instant tu peux juste lancer quelques dés avec la commande !lance (par ex. !lance 1d20), mais le meilleur est à venir.");
         }
     }
 }
